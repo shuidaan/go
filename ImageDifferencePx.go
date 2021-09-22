@@ -50,8 +50,8 @@ func (o Outlinesortx) Less(i, j int) bool {
 }
 func main() {
 	t2 := time.Now().Nanosecond()
-	file1, _ := os.Open("E:\\wq\\img\\a0.jpg")
-	file2, _ := os.Open("E:\\wq\\img\\a8.jpg")
+	file1, _ := os.Open(".\\img\\a0.jpg")
+	file2, _ := os.Open(".\\img\\a8.jpg")
 	defer file1.Close()
 	defer file2.Close()
 
@@ -76,17 +76,17 @@ func main() {
 			distance := math.Abs(subimg1px - subimg2px)
 
 			if distance > gap {
-
+				z++
 				outlines = append(outlines, outline{
 					x:i,
 					y:j,
 				})
 
 				if status == 0 && same == 1 {
-					outlines = append(outlines, outline{
-						x:i,
-						y:j,
-					})
+					//outlines = append(outlines, outline{
+					//	x:i,
+					//	y:j,
+					//})
 					drawline(i,j,4,2,w,m)	//竖向画框
 					status = 1
 				}
@@ -99,7 +99,6 @@ func main() {
 				drawline(i,j,4,3,w,m)	//竖向画框
 				status,same = 0, 1
 			}
-			z++
 		} //w
 	}//h
 
@@ -110,13 +109,12 @@ func main() {
 	}
 
 	sort.Sort(Outlinesort(outlines))
-	sortlx := sortline(outlines)
-	//横向画框
-	for k,v := range sortlx{
+	sortline(outlines)
+	for k,v := range outlines{
 		if k == 0 {
 			status, same= 0,0
 		}
-		if k+1 == sortlx.Len() {
+		if k+1 == len(outlines) {
 			drawline(outlines[k].x,outlines[k].y,4,1,w,m)
 		}
 		if status == 0 && same == 0 {
@@ -127,12 +125,12 @@ func main() {
 		if v.x - same == w {
 			same, status= v.x,1
 		}
-		if (v.x - same > w || v.y != sortlx[k-1].y ) && status == 1{
+		if (v.x - same > w || v.y != outlines[k-1].y ) && status == 1{
 			drawline(outlines[k-1].x,outlines[k-1].y,4,1,w,m)
 			same,status = 0, 0
 		}
 	}
-	for _,v := range sortlx{
+	for _,v := range outlines{
 		m.Set(v.x,v.y,img2.At(v.x,v.y))
 	}
 
@@ -177,27 +175,25 @@ func drawline(x, y, size, dire, zone int, m *image.RGBA) error {
 	}
 	return nil
 }
-// 排序，用于框出差异，优化减少重复设置像素
-func sortline(outlines Outlinesort)  (Outlinesort) {
+
+// 排序，用于框出差异，优化减少重复设置像素  切片指针传递
+func sortline(outlines Outlinesort) {
 	oy,startkey := -1,0
-	var sortx,sortxx  Outlinesort
+	if len(outlines) > 0 {
+		oy = outlines[0].y
+	}
+	var sortx  Outlinesort
 	for key,value := range outlines {
-		//if oy == -1 {
-		//	oy = value.y
-		//}
 		if value.y != oy {
 			sortx = outlines[startkey:key]
 			sort.Sort(Outlinesortx(sortx))
-			sortxx = append(sortxx,sortx...)
 			startkey,oy = key,value.y
 		}
 		if key == outlines.Len() {
 			sortx = outlines[startkey:key]
 			sort.Sort(Outlinesortx(sortx))
-			sortxx = append(sortxx,sortx...)
 		}
 	}
-	return sortxx
 }
 //将rgb像素转化为gray，用于对比色差
 func rgb2gray1px(colorImg color.Color) float64 {
