@@ -58,12 +58,12 @@ func main() {
 	img2, _ := jpeg.Decode(file2)
 
 	width, high := img1.Bounds().Dx(),img1.Bounds().Dy()
-	var status,same, gap, z,h,w int = 0,1,1,0,1,1    //status same划线状态，gap允许色差 z多少个差别  h单个色块高 w单个色块宽
+	var status,same, gap, z,h,w int = 0,1,1,0,8,8    //status same划线状态，gap允许色差 z多少个差别  h单个色块高 w单个色块宽
 	var outlines []outline = make([]outline,0,(width+high)/64)
+
 	b := img1.Bounds()
 	//根据b画布的大小新建一个新图像
 	m := image.NewRGBA(b)
-	fmt.Println(width,high)
 	draw.Draw(m, b, img1, b.Min, draw.Over)
 
 	////测试被裁剪的小图是否全部加入对比
@@ -76,17 +76,7 @@ func main() {
 	//sm2 := image.NewRGBA(sb2)
 
 	for i:= 0;i < width ; i+=w {
-		//if (width - i < 16)  i = width- i
-		//x = i
-		//if (width - i < 16) {
-		//	x = width- i
-		//}
 		for j:=0 ; j < high ; j+=h  {
-			//y=j
-			//if (high - j < 16) {
-			//	y = high- j
-			//
-			//}
 			subimg1,err := clip(img1,i,j,w,h)
 			if err != nil {
 				fmt.Println(err)
@@ -113,9 +103,6 @@ func main() {
 
 
 			if distance > gap {
-				//z++
-				//fmt.Printf("Distance between images:: %v . x: %d ,y: %d ,z: %d \n", distance,i,j,z)
-
 				offet := image.Pt(i,j)
 				sr := subimg2.Bounds()
 
@@ -125,19 +112,12 @@ func main() {
 				})
 				draw.Draw(m,b,subimg2,sr.Min.Sub(offet),draw.Over)
 				if status == 0 && same == 1 {
-
-					outlines = append(outlines, outline{
-						x:i,
-						y:j,
-					})
 					drawline(i,j,4,2,w,m)
 					status = 1
 				}
-				offet,sr = image.ZP ,image.ZR
-
+				z++
 			}
 			if  status == 1 &&  distance <= gap {
-				//fmt.Printf("Distance between images: %v . x: %d ,y: %d ,z: %d ______\n", distance,i,j,z)
 				outlines = append(outlines, outline{
 					x:i,
 					y:j,
@@ -145,13 +125,10 @@ func main() {
 				drawline(i,j,4,3,w,m)
 				status,same = 0, 1
 			}
-			z++
 		} //w
-		//fmt.Println(x ,y)
 	}//h
 
 	name1 := strconv.Itoa(int(time.Now().Unix()))
-	fmt.Println(name1)
 	imgw, err := os.Create(name1 + "shuidaan.jpg")
 	if err != nil {
 		fmt.Println(err)
@@ -169,39 +146,27 @@ func main() {
 
 	//sort.Sort(Outlinesortx(outlines))
 	sort.Sort(Outlinesort(outlines))
-	fmt.Println(outlines)
-	sortlx := sortline(outlines)
-	fmt.Println(outlines)
-	fmt.Println(sortlx)
-	for k,v := range sortlx{
+	sortline(outlines)
+	for k,v := range outlines{
 		if k == 0 {
 			status, same= 0,0
 		}
-		if k+1 == sortlx.Len() {
+		if k+1 == len(outlines) {
 			drawline(outlines[k].x,outlines[k].y,4,1,w,m)
 		}
 		if status == 0 && same == 0 {
 			drawline(v.x,v.y,4,0,w,m)
 			same, status = v.x,1
-			//fmt.Println(same,v.y,status)
-			//fmt.Println(same,v.x,v.y,oy,"___")
 			continue
 		}
 		if v.x - same == w {
 			same, status= v.x,1
 		}
-		//fmt.Println(same,v.x,sortlx[k].x,v.y,  sortlx[k].y ,"__1_")
-		if (v.x - same > w || v.y != sortlx[k-1].y ) && status == 1{
-			//fmt.Println(k)
-			//fmt.Println(v.x,v.y)
-			// 取K值，无法应用
+		if (v.x - same > w || v.y != outlines[k-1].y ) && status == 1{
 			drawline(outlines[k-1].x,outlines[k-1].y,4,1,w,m)
 			same,status = 0, 0
-			//fmt.Println(same,v.x,v.y,oy)
 		}
 	}
-
-	//fmt.Println(outlines)
 
 	jpeg.Encode(imgw, m, &jpeg.Options{100})
 	defer imgw.Close()
@@ -213,10 +178,8 @@ func main() {
 	//defer simgw2.Close()
 
 
-	fmt.Println(time.Now().Unix() , cap(outlines),z,w)
+	fmt.Println("切片大小 不同图像块 每次对比宽度分别是：", cap(outlines),z,w)
 }
-
-//func clip(in io.Reader, out io.Writer, x0, y0, x1, y1, quality int) error {
 
 func clip(src image.Image, x, y, w, h int) (image.Image, error) {
 
@@ -269,26 +232,22 @@ func drawline(x, y, size, dire, zone int, m *image.RGBA) error {
 	return nil
 }
 
-func sortline(outlines Outlinesort)  (Outlinesort) {
+// 排序，用于框出差异，优化减少重复设置像素  切片指针传递
+func sortline(outlines Outlinesort) {
 	oy,startkey := -1,0
-	var sortx,sortxx  Outlinesort
+	if len(outlines) > 0 {
+		oy = outlines[0].y
+	}
+	var sortx  Outlinesort
 	for key,value := range outlines {
-		//if oy == -1 {
-		//	oy = value.y
-		//}
 		if value.y != oy {
 			sortx = outlines[startkey:key]
-			//fmt.Println(startkey,key)
 			sort.Sort(Outlinesortx(sortx))
-			sortxx = append(sortxx,sortx...)
 			startkey,oy = key,value.y
 		}
 		if key == outlines.Len() {
 			sortx = outlines[startkey:key]
-			//fmt.Println(startkey,key)
 			sort.Sort(Outlinesortx(sortx))
-			sortxx = append(sortxx,sortx...)
 		}
 	}
-	return sortxx
 }
